@@ -1,0 +1,41 @@
+name: Deploy to Azure Storage
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: azure-storage
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      AZURE_STORAGE_CONNECTION_STRING: ${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Validate Azure credential
+        run: |
+          if [ -z "$AZURE_STORAGE_CONNECTION_STRING" ]; then
+            echo "Configure the AZURE_STORAGE_CONNECTION_STRING repository secret."
+            exit 1
+          fi
+      - name: Prepare site
+        run: |
+          mkdir site-output
+          cp index.html site-output/index.html
+      - name: Upload to Azure Storage static website
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            az storage blob upload-batch \
+              --connection-string "$AZURE_STORAGE_CONNECTION_STRING" \
+              --destination '$web' \
+              --source site-output \
+              --overwrite true
